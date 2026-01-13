@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>打撃ローテ自動生成</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{
+      --bg:#020817; --panel:#020817; --accent:#38bdf8; --accent2:#6366f1;
+      --text:#e5e7eb; --muted:#9ca3af; --radius-xl:24px; --radius-md:18px;
+      --font:system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Text","Noto Sans JP",sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:22px 14px 26px; font-family:var(--font); color:var(--text);
+      background:radial-gradient(1400px 700px at 6% 0%, #111827 0%, #020817 55%, #000 100%);
+      font-size:13px; -webkit-font-smoothing:antialiased;
+    }
+    h1{margin:0 0 6px; font-size:24px; font-weight:650; letter-spacing:.06em; color:#f9fafb;}
+    .sub{font-size:10px; color:var(--muted); margin-bottom:16px; max-width:980px; line-height:1.7;}
+    .app{
+      max-width:1200px; margin:0 auto; padding:16px; border-radius:var(--radius-xl);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.14), transparent),
+        radial-gradient(circle at top right, rgba(79,70,229,0.09), transparent),
+        var(--panel);
+      border:1px solid rgba(148,163,253,0.25);
+      box-shadow:0 22px 72px rgba(15,23,42,0.98);
+      display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,2.05fr); gap:18px;
+    }
+    @media (max-width: 900px){ .app{grid-template-columns:1fr;} }
+    .card{
+      padding:10px; border-radius:var(--radius-md);
+      border:1px solid rgba(148,163,253,0.26);
+      background:radial-gradient(circle at top right, rgba(56,189,248,0.10), transparent), rgba(2,6,23,0.98);
+    }
+    .card-title{
+      font-size:12px; font-weight:600; color:#bfdbfe; margin-bottom:4px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .icon{
+      width:16px; height:16px; border-radius:6px; border:1px solid var(--accent);
+      color:var(--accent); font-size:9px; display:flex; align-items:center; justify-content:center;
+    }
+    label{font-size:9px; color:var(--muted); display:block; margin-bottom:1px;}
+    input[type="text"], input[type="number"]{
+      width:100%; padding:5px 7px; font-size:10px; border-radius:7px;
+      border:1px solid rgba(148,163,253,0.38); background:#020817; color:var(--text);
+      outline:none; transition:all .16s ease;
+    }
+    input[type="text"]:focus, input[type="number"]:focus{
+      border-color:var(--accent); box-shadow:0 0 0 1px rgba(56,189,248,0.25);
+    }
+
+    /* メンバー行：名前 / P / C / 投手のみ / 打者のみ / 削除 */
+    .row{
+      display:grid;
+      grid-template-columns:minmax(0, 2.2fr) 0.7fr 0.7fr 0.95fr 0.95fr 22px;
+      gap:6px; align-items:end; margin-bottom:3px;
+    }
+    .chk{
+      display:flex; align-items:center; gap:6px;
+      padding:5px 7px; border-radius:7px;
+      border:1px solid rgba(148,163,253,0.30);
+      background:#020817; color:var(--muted); font-size:10px;
+      height:28px;
+    }
+    .chk input{ transform:translateY(1px); }
+
+    .del-btn{
+      width:22px; height:22px; border-radius:999px; border:1px solid rgba(148,163,253,0.4);
+      background:transparent; color:var(--muted); font-size:11px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s ease;
+      margin-bottom:3px;
+    }
+    .del-btn:hover{background:rgba(127,29,29,0.96); color:#fee2e2; border-color:rgba(252,165,165,0.98);}
+
+    .controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0; font-size:9px; color:var(--muted);}
+    .btn{
+      padding:5px 12px; font-size:10px; border-radius:999px; border:none; cursor:pointer;
+      background:linear-gradient(to right, var(--accent), var(--accent2));
+      color:#020817; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+      box-shadow:0 8px 24px rgba(56,189,248,0.46); white-space:nowrap; transition:all .16s ease-out;
+    }
+    .btn span{font-size:11px;}
+    .btn:hover{transform:translateY(-1px); box-shadow:0 14px 32px rgba(79,70,229,0.55);}
+    .btn-outline{
+      background:transparent; color:var(--accent); border:1px solid rgba(56,189,248,0.78); box-shadow:none;
+      padding:5px 12px; font-size:10px; border-radius:999px; cursor:pointer;
+    }
+    .btn-outline:hover{background:rgba(3,7,18,1); box-shadow:0 10px 26px rgba(15,23,42,0.98);}
+
+    table{width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;}
+    th, td{border-bottom:1px solid rgba(75,85,99,0.75); padding:3px 4px; text-align:center; white-space:nowrap;}
+    th{font-size:9px; color:var(--muted); background:#020817; position:sticky; top:0; z-index:2; font-weight:500;}
+    .scroll{
+      max-height:430px; overflow:auto; margin-top:4px; border-radius:14px;
+      border:1px solid rgba(75,85,99,0.8);
+      background:radial-gradient(circle at top left, rgba(15,23,42,1), transparent), #020817;
+    }
+
+    .msg{margin-top:5px; padding:5px 8px; border-radius:9px; font-size:8.8px; line-height:1.6;}
+    .ok{background:rgba(22,101,52,0.98); color:#bbf7d0; border:1px solid rgba(22,163,74,0.96);}
+    .err{background:rgba(127,29,29,0.98); color:#fee2e2; border:1px solid rgba(254,202,202,0.96);}
+    .info{background:rgba(30,64,175,0.98); color:#dbeafe; border:1px solid rgba(129,140,248,0.96);}
+    .note{font-size:8px; color:var(--muted); margin-top:3px; line-height:1.6;}
+    ul.rule-list{margin:4px 0 0 14px; padding:0; list-style:disc; font-size:9px; color:var(--muted); line-height:1.7;}
+  </style>
+</head>
+
+<body>
+<h1>打撃ローテ自動生成</h1>
+<div class="sub">
+  投手・捕手の連続起用と、打撃（マシン＋打者2人）を同時に計算します。<br>
+  「投手のみ」「打者のみ」を指定できます。再生成で別パターン（別解）があれば提示します。
+</div>
+
+<div class="app">
+  <div class="card">
+    <div class="card-title"><span class="icon">P</span>メンバー & 条件設定</div>
+
+    <div class="controls">
+      <div>
+        <label>ローテ本数</label>
+        <input type="number" id="rotations" value="9" min="3" max="30">
+      </div>
+      <button class="btn-outline" id="addRowBtn">＋メンバー追加</button>
+      <button class="btn-outline" id="demoBtn">★デモ読込</button>
+      <button class="btn-outline" id="clearBtn">クリア</button>
+    </div>
+
+    <div id="players"></div>
+
+    <div class="note">
+      ■ 入力の考え方<br>
+      ・投手：P連続の合計＝ローテ本数（各列に投手1人）<br>
+      ・捕手：C連続の合計＝ローテ本数（各列に捕手1人）<br>
+      ・打撃：投手のみは打撃なし／打者のみは必ず打つ／残りは自動配分<br>
+      ・前後制約：投手・捕手の前後は打撃が入らない（不可能なら自動で緩和）
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="generateBtn"><span>▶</span>ローテ生成 / 再生成</button>
+    </div>
+
+    <div id="message"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">R</span>ローテ結果</div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>R</th><th>投手</th><th>捕手</th><th>マシン</th><th>打者1</th><th>打者2</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
