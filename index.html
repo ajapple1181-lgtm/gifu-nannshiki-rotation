@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>打撃ローテ自動生成</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{
+      --bg:#020817; --panel:#020817; --accent:#38bdf8; --accent2:#6366f1;
+      --text:#e5e7eb; --muted:#9ca3af; --radius-xl:24px; --radius-md:18px;
+      --font:system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Text","Noto Sans JP",sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:22px 14px 26px; font-family:var(--font); color:var(--text);
+      background:radial-gradient(1400px 700px at 6% 0%, #111827 0%, #020817 55%, #000 100%);
+      font-size:13px; -webkit-font-smoothing:antialiased;
+    }
+    h1{margin:0 0 6px; font-size:24px; font-weight:650; letter-spacing:.06em; color:#f9fafb;}
+    .sub{font-size:10px; color:var(--muted); margin-bottom:16px; max-width:980px; line-height:1.7;}
+    .app{
+      max-width:1200px; margin:0 auto; padding:16px; border-radius:var(--radius-xl);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.14), transparent),
+        radial-gradient(circle at top right, rgba(79,70,229,0.09), transparent),
+        var(--panel);
+      border:1px solid rgba(148,163,253,0.25);
+      box-shadow:0 22px 72px rgba(15,23,42,0.98);
+      display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,2.05fr); gap:18px;
+    }
+    @media (max-width: 900px){ .app{grid-template-columns:1fr;} }
+    .card{
+      padding:10px; border-radius:var(--radius-md);
+      border:1px solid rgba(148,163,253,0.26);
+      background:radial-gradient(circle at top right, rgba(56,189,248,0.10), transparent), rgba(2,6,23,0.98);
+    }
+    .card-title{
+      font-size:12px; font-weight:600; color:#bfdbfe; margin-bottom:4px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .icon{
+      width:16px; height:16px; border-radius:6px; border:1px solid var(--accent);
+      color:var(--accent); font-size:9px; display:flex; align-items:center; justify-content:center;
+    }
+    label{font-size:9px; color:var(--muted); display:block; margin-bottom:1px;}
+    input[type="text"], input[type="number"]{
+      width:100%; padding:5px 7px; font-size:10px; border-radius:7px;
+      border:1px solid rgba(148,163,253,0.38); background:#020817; color:var(--text);
+      outline:none; transition:all .16s ease;
+    }
+    input[type="text"]:focus, input[type="number"]:focus{
+      border-color:var(--accent); box-shadow:0 0 0 1px rgba(56,189,248,0.25);
+    }
+
+    /* メンバー行：名前 / P / C / 投手のみ / 打者のみ / 削除 */
+    .row{
+      display:grid;
+      grid-template-columns:minmax(0, 2.2fr) 0.7fr 0.7fr 0.95fr 0.95fr 22px;
+      gap:6px; align-items:end; margin-bottom:3px;
+    }
+    .chk{
+      display:flex; align-items:center; gap:6px;
+      padding:5px 7px; border-radius:7px;
+      border:1px solid rgba(148,163,253,0.30);
+      background:#020817; color:var(--muted); font-size:10px;
+      height:28px;
+    }
+    .chk input{ transform:translateY(1px); }
+
+    .del-btn{
+      width:22px; height:22px; border-radius:999px; border:1px solid rgba(148,163,253,0.4);
+      background:transparent; color:var(--muted); font-size:11px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s ease;
+      margin-bottom:3px;
+    }
+    .del-btn:hover{background:rgba(127,29,29,0.96); color:#fee2e2; border-color:rgba(252,165,165,0.98);}
+
+    .controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0; font-size:9px; color:var(--muted);}
+    .btn{
+      padding:5px 12px; font-size:10px; border-radius:999px; border:none; cursor:pointer;
+      background:linear-gradient(to right, var(--accent), var(--accent2));
+      color:#020817; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+      box-shadow:0 8px 24px rgba(56,189,248,0.46); white-space:nowrap; transition:all .16s ease-out;
+    }
+    .btn span{font-size:11px;}
+    .btn:hover{transform:translateY(-1px); box-shadow:0 14px 32px rgba(79,70,229,0.55);}
+    .btn-outline{
+      background:transparent; color:var(--accent); border:1px solid rgba(56,189,248,0.78); box-shadow:none;
+      padding:5px 12px; font-size:10px; border-radius:999px; cursor:pointer;
+    }
+    .btn-outline:hover{background:rgba(3,7,18,1); box-shadow:0 10px 26px rgba(15,23,42,0.98);}
+
+    table{width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;}
+    th, td{border-bottom:1px solid rgba(75,85,99,0.75); padding:3px 4px; text-align:center; white-space:nowrap;}
+    th{font-size:9px; color:var(--muted); background:#020817; position:sticky; top:0; z-index:2; font-weight:500;}
+    .scroll{
+      max-height:430px; overflow:auto; margin-top:4px; border-radius:14px;
+      border:1px solid rgba(75,85,99,0.8);
+      background:radial-gradient(circle at top left, rgba(15,23,42,1), transparent), #020817;
+    }
+
+    .msg{margin-top:5px; padding:5px 8px; border-radius:9px; font-size:8.8px; line-height:1.6;}
+    .ok{background:rgba(22,101,52,0.98); color:#bbf7d0; border:1px solid rgba(22,163,74,0.96);}
+    .err{background:rgba(127,29,29,0.98); color:#fee2e2; border:1px solid rgba(254,202,202,0.96);}
+    .info{background:rgba(30,64,175,0.98); color:#dbeafe; border:1px solid rgba(129,140,248,0.96);}
+    .note{font-size:8px; color:var(--muted); margin-top:3px; line-height:1.6;}
+    ul.rule-list{margin:4px 0 0 14px; padding:0; list-style:disc; font-size:9px; color:var(--muted); line-height:1.7;}
+  </style>
+</head>
+
+<body>
+<h1>打撃ローテ自動生成</h1>
+<div class="sub">
+  投手・捕手の連続起用と、打撃（マシン＋打者2人）を同時に計算します。<br>
+  「投手のみ」「打者のみ」を指定できます。再生成で別パターン（別解）があれば提示します。
+</div>
+
+<div class="app">
+  <div class="card">
+    <div class="card-title"><span class="icon">P</span>メンバー & 条件設定</div>
+
+    <div class="controls">
+      <div>
+        <label>ローテ本数</label>
+        <input type="number" id="rotations" value="9" min="3" max="30">
+      </div>
+      <button class="btn-outline" id="addRowBtn">＋メンバー追加</button>
+      <button class="btn-outline" id="demoBtn">★デモ読込</button>
+      <button class="btn-outline" id="clearBtn">クリア</button>
+    </div>
+
+    <div id="players"></div>
+
+    <div class="note">
+      ■ 入力の考え方<br>
+      ・投手：P連続の合計＝ローテ本数（各列に投手1人）<br>
+      ・捕手：C連続の合計＝ローテ本数（各列に捕手1人）<br>
+      ・打撃：投手のみは打撃なし／打者のみは必ず打つ／残りは自動配分<br>
+      ・前後制約：投手・捕手の前後は打撃が入らない（不可能なら自動で緩和）
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="generateBtn"><span>▶</span>ローテ生成 / 再生成</button>
+    </div>
+
+    <div id="message"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">R</span>ローテ結果</div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>R</th><th>投手</th><th>捕手</th><th>マシン</th><th>打者1</th><th>打者2</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+    <div class="note">
+      <ul class="rule-list">
+        <li>各列：投手1 / 捕手1 / マシン1 / 打者2（同列で同じ人は不可）</li>
+        <li>投手・捕手は連続起用（P連続 / C連続）</li>
+        <li>打撃は斜め：マシン(列r) → 打者1(列r+1) → 打者2(列r+2)（周回）</li>
+        <li>前後制約ありで探索し、無理ならその列のみ禁止に緩和</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  const playersDiv = document.getElementById('players');
+  const rotationsInput = document.getElementById('rotations');
+  const msgDiv = document.getElementById('message');
+  const tbody = document.getElementById('resultBody');
+
+  /* ランダム */
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  /* 行追加：name, pLen, cLen, pitchOnly, batOnly */
+  function addPlayerRow(name='', p=0, c=0, pitchOnly=false, batOnly=false){
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    row.innerHTML = `
+      <div>
+        <label>名前</label>
+        <input type="text" class="name" value="${name}">
+      </div>
+      <div>
+        <label>P連続</label>
+        <input type="number" class="pLen" value="${p}" min="0" max="60">
+      </div>
+      <div>
+        <label>C連続</label>
+        <input type="number" class="cLen" value="${c}" min="0" max="60">
+      </div>
+
+      <div class="chk">
+        <input type="checkbox" class="pitchOnly" ${pitchOnly ? 'checked':''}>
+        <span>投手のみ</span>
+      </div>
+      <div class="chk">
+        <input type="checkbox" class="batOnly" ${batOnly ? 'checked':''}>
+        <span>打者のみ</span>
+      </div>
+
+      <button class="del-btn" title="削除">✕</button>
+    `;
+
+    const pLenEl = row.querySelector('.pLen');
+    const cLenEl = row.querySelector('.cLen');
+    const pitchOnlyEl = row.querySelector('.pitchOnly');
+    const batOnlyEl   = row.querySelector('.batOnly');
+
+    function applyToggles(){
+      // 同時ONは不可（投手のみ優先）
+      if (pitchOnlyEl.checked && batOnlyEl.checked){
+        batOnlyEl.checked = false;
+      }
+
+      if (pitchOnlyEl.checked){
+        // 投手のみ：捕手0固定、投手は入力可
+        cLenEl.value = 0;
+        cLenEl.disabled = true;
+        pLenEl.disabled = false;
+        batOnlyEl.disabled = true;
+      } else if (batOnlyEl.checked){
+        // 打者のみ：投手/捕手0固定
+        pLenEl.value = 0;
+        cLenEl.value = 0;
+        pLenEl.disabled = true;
+        cLenEl.disabled = true;
+        pitchOnlyEl.disabled = true;
+      } else {
+        // 通常
+        pLenEl.disabled = false;
+        cLenEl.disabled = false;
+        pitchOnlyEl.disabled = false;
+        batOnlyEl.disabled = false;
+      }
+    }
+
+    pitchOnlyEl.addEventListener('change', applyToggles);
+    batOnlyEl.addEventListener('change', applyToggles);
+
+    row.querySelector('.del-btn').addEventListener('click', ()=> row.remove());
+
+    playersDiv.appendChild(row);
+    applyToggles();
+  }
+
+  // 初期：全員 0,0（順番固定）
+  function loadDemo(){
+    playersDiv.innerHTML = '';
+    addPlayerRow('森田',   0, 0, false, false);
+    addPlayerRow('林',     0, 0, false, false);
+    addPlayerRow('山田子', 0, 0, false, false);
+    addPlayerRow('祖父江', 0, 0, false, false);
+    addPlayerRow('川瀬',   0, 0, false, false);
+    addPlayerRow('今﨑',   0, 0, false, false);
+    addPlayerRow('浜上',   0, 0, false, false);
+    addPlayerRow('石本',   0, 0, false, false);
+    addPlayerRow('山田泰', 0, 0, false, false);
+  }
+
+  function readPlayers(){
+    const rows = playersDiv.querySelectorAll('.row');
+    const players = [];
+    rows.forEach(row=>{
+      const name = row.querySelector('.name').value.trim();
+      if(!name) return;
+
+      const pLen = parseInt(row.querySelector('.pLen').value||'0',10);
+      const cLen = parseInt(row.querySelector('.cLen').value||'0',10);
+      const pitchOnly = row.querySelector('.pitchOnly').checked;
+      const batOnly   = row.querySelector('.batOnly').checked;
+
+      players.push({name, pLen, cLen, pitchOnly, batOnly});
+    });
+    return players;
+  }
+
+  /* 連続ブロック配置（投手/捕手） */
+  function placeBlocksLinear(N, blocks, conflictCheck){
+    const arr = new Array(N).fill(null);
+    blocks.sort((a,b)=> b.len-a.len || (Math.random()-0.5));
+
+    function dfs(i){
+      if(i===blocks.length) return true;
+      const {name,len} = blocks[i];
+
+      const starts = [];
+      for(let s=0;s<=N-len;s++) starts.push(s);
+      shuffle(starts);
+
+      for(const start of starts){
+        let ok=true;
+        for(let t=start;t<start+len;t++){
+          if(arr[t]!==null){ ok=false; break; }
+          if(conflictCheck && conflictCheck(name,t)){ ok=false; break; }
+        }
+        if(!ok) continue;
+
+        for(let t=start;t<start+len;t++) arr[t]=name;
+        if(dfs(i+1)) return true;
+        for(let t=start;t<start+len;t++) arr[t]=null;
+      }
+      return false;
+    }
+
+    return dfs(0) ? arr : null;
+  }
+
+  /* 打撃開始回数（hitSets）を自動配分して players に付与 */
+  function assignHitSets(players, N){
+    const hit = new Map(players.map(p => [p.name, 0]));
+
+    // 打者のみ：最低1
+    const batOnly = players.filter(p => p.batOnly);
+    if (batOnly.length > N){
+      return { ok:false, reason:`打者のみが ${batOnly.length} 人で、ローテ本数 ${N} を超えています。` };
+    }
+    batOnly.forEach(p => hit.set(p.name, 1));
+
+    let remaining = N - batOnly.length;
+
+    // 通常メンバーに1ずつ（入力順）
+    const normal = players.filter(p => !p.pitchOnly && !p.batOnly);
+    for (const p of normal){
+      if (remaining <= 0) break;
+      hit.set(p.name, 1);
+      remaining--;
+    }
+
+    // まだ足りない分は「投手のみ以外」に追加で配る（ランダム）
+    if (remaining > 0){
+      const pool = players.filter(p => !p.pitchOnly);
+      if (pool.length === 0){
+        return { ok:false, reason:`投手のみ以外が0人のため、打撃担当を割り当てできません。` };
+      }
+      while (remaining > 0){
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        hit.set(pick.name, hit.get(pick.name) + 1);
+        remaining--;
+      }
+    }
+
+    // もし多すぎたら（batOnly が多い等で起こり得る）通常から落とす
+    let sum = 0;
+    players.forEach(p => sum += hit.get(p.name));
+    if (sum > N){
+      let over = sum - N;
+      const reducible = players
+        .filter(p => !p.pitchOnly && !p.batOnly && hit.get(p.name) > 0)
+        .reverse();
+      for (const p of reducible){
+        if (over <= 0) break;
+        const cur = hit.get(p.name);
+        const dec = Math.min(cur, over);
+        hit.set(p.name, cur - dec);
+        over -= dec;
+      }
+      if (over > 0){
+        return { ok:false, reason:`打撃担当が多すぎて調整できません（打者のみの人数などを見直してください）。` };
+      }
+    }
+
+    const out = players.map(p => ({...p, hitSets: hit.get(p.name)}));
+    return { ok:true, players: out };
+  }
+
+  /* banned：投手/捕手の列（＋前後）に打撃を入れない */
+  function buildBanned(N, players, P, C, useMargin){
+    const banned = {};
+    players.forEach(pl=> banned[pl.name]=new Set());
+
+    for(let r=0;r<N;r++){
+      const roles=[P[r],C[r]];
+      roles.forEach(name=>{
+        if(!name) return;
+        if(useMargin){
+          for(let t=r-1;t<=r+1;t++){
+            if(t>=0 && t<N) banned[name].add(t);
+          }
+        } else {
+          banned[name].add(r);
+        }
+      });
+    }
+    return banned;
+  }
+
+  /* 打撃：Start[r]=その列のマシン担当
+     打者1[r]=Start[r-1], 打者2[r]=Start[r-2]（mod）
+     ただし Start の人は r,r+1,r+2 で打つので banned を満たす必要あり */
+  function solveStarts(N, players, P, C, banned){
+    const hitters = players.filter(p=> p.hitSets>0);
+
+    const remaining = new Map();
+    hitters.forEach(p=> remaining.set(p.name, p.hitSets));
+
+    const Start = new Array(N).fill(null);
+
+    function okToStart(name, r){
+      // この人は r, r+1, r+2 で打つ
+      for(let k=0;k<3;k++){
+        const t = (r+k)%N;
+        if(banned[name].has(t)) return false;
+        if(P[t]===name || C[t]===name) return false;
+      }
+      return true;
+    }
+
+    function dfs(r){
+      if(r===N){
+        // wrapの重複チェック（同じ列で M/B1/B2 が同一人物になるのを防ぐ）
+        const s0=Start[0], s1=Start[1], sN1=Start[N-1], sN2=Start[N-2];
+        if(s0===sN1 || s0===sN2 || s1===sN1 || s1===s0) return false;
+        return true;
+      }
+
+      const prev1 = (r-1>=0) ? Start[r-1] : null;
+      const prev2 = (r-2>=0) ? Start[r-2] : null;
+
+      const cand = [];
+      for(const [name, rem] of remaining.entries()){
+        if(rem<=0) continue;
+        if(name===prev1 || name===prev2) continue;
+        if(!okToStart(name,r)) continue;
+        cand.push(name);
+      }
+      shuffle(cand);
+
+      for(const name of cand){
+        Start[r]=name;
+        remaining.set(name, remaining.get(name)-1);
+
+        if(dfs(r+1)) return true;
+
+        remaining.set(name, remaining.get(name)+1);
+        Start[r]=null;
+      }
+      return false;
+    }
+
+    if(!dfs(0)) return null;
+
+    const M = new Array(N).fill(null);
+    const B1 = new Array(N).fill(null);
+    const B2 = new Array(N).fill(null);
+
+    for(let r=0;r<N;r++){
+      M[r]  = Start[r];
+      B1[r] = Start[(r-1+N)%N];
+      B2[r] = Start[(r-2+N)%N];
+
+      // 同一列の重複チェック
+      if(new Set([P[r],C[r],M[r],B1[r],B2[r]]).size !== 5) return null;
+    }
+
+    return {M,B1,B2};
+  }
+
+  function solveAll(N, players, useMargin){
+    const pBlocks = players.filter(p=> p.pLen>0).map(p=>({name:p.name, len:p.pLen}));
+    const cBlocks = players.filter(p=> p.cLen>0).map(p=>({name:p.name, len:p.cLen}));
+
+    const P = placeBlocksLinear(N, pBlocks, null);
+    if(!P) return null;
+
+    const C = placeBlocksLinear(N, cBlocks, (name,t)=> P[t]===name);
+    if(!C) return null;
+
+    const banned = buildBanned(N, players, P, C, useMargin);
+    const hitters = solveStarts(N, players, P, C, banned);
+    if(!hitters) return null;
+
+    return {P, C, ...hitters};
+  }
+
+  function generateSchedule(){
+    msgDiv.innerHTML=''; tbody.innerHTML='';
+
+    const N = parseInt(rotationsInput.value,10);
+    const basePlayers = readPlayers();
+
+    if(!basePlayers.length){
+      msgDiv.innerHTML = `<div class="msg err">メンバーを入力してください。</div>`;
+      return;
+    }
+    if(N<3){
+      msgDiv.innerHTML = `<div class="msg err">ローテ本数は3以上にしてください。</div>`;
+      return;
+    }
+
+    // 投手・捕手の合計チェック
+    let totalP=0, totalC=0;
+    basePlayers.forEach(p=>{ totalP+=p.pLen; totalC+=p.cLen; });
+
+    if(totalP!==N || totalC!==N){
+      msgDiv.innerHTML = `
+        <div class="msg err">
+          合計がローテ本数(${N})と一致していません。<br>
+          投手合計=${totalP} / 捕手合計=${totalC}
+        </div>`;
+      return;
+    }
+
+    // 打撃を自動配分（hitSets を付与）
+    const assigned = assignHitSets(basePlayers, N);
+    if(!assigned.ok){
+      msgDiv.innerHTML = `<div class="msg err">${assigned.reason}</div>`;
+      return;
+    }
+    const players = assigned.players;
+
+    // ① 前後制約あり → ② 緩和
+    let result = solveAll(N, players, true);
+    if(result){
+      msgDiv.innerHTML = `<div class="msg ok">前後制約あり（投手・捕手の前後は打撃なし）で生成しました。再生成で別案も試せます。</div>`;
+    } else {
+      result = solveAll(N, players, false);
+      if(result){
+        msgDiv.innerHTML = `<div class="msg info">前後制約ありでは不可能だったため、その列のみ打撃なしに緩和して生成しました。</div>`;
+      } else {
+        msgDiv.innerHTML = `<div class="msg err">条件を満たすローテが見つかりませんでした。投手/捕手の連続数や「投手のみ/打者のみ」の指定を調整してください。</div>`;
+        return;
+      }
+    }
+
+    const {P,C,M,B1,B2} = result;
+    for(let r=0;r<N;r++){
+      const tr=document.createElement('tr');
+      [r+1,P[r],C[r],M[r],B1[r],B2[r]].forEach(v=>{
+        const td=document.createElement('td'); td.textContent=v||''; tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+  }
+
+  document.getElementById('addRowBtn').addEventListener('click', ()=> addPlayerRow('',0,0,false,false));
+  document.getElementById('demoBtn').addEventListener('click', loadDemo);
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    playersDiv.innerHTML=''; tbody.innerHTML=''; msgDiv.innerHTML='';
+  });
+  document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+
+  loadDemo();
+</script>
+</body>
+  </html>
